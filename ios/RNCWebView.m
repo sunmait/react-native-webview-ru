@@ -717,14 +717,27 @@ static NSDictionary* customCertificatesForHost;
     customCertificatesForHost = certificates;
 }
 
+-(void)installCert:(NSString*)certName forHost:(NSString*)host {
+    NSBundle *bundle = [NSBundle mainBundle];
+    NSMutableDictionary* certMap = [NSMutableDictionary new];
+    NSData *rootCertData = [NSData dataWithContentsOfFile:[bundle pathForResource:certName ofType:@"der"]];
+    SecCertificateRef certificate = SecCertificateCreateWithData(NULL, (CFDataRef) rootCertData);
+    OSStatus err = SecItemAdd((CFDictionaryRef) [NSDictionary dictionaryWithObjectsAndKeys:(id) kSecClassCertificate, kSecClass, certificate, kSecValueRef, nil], NULL);
+    [certMap setObject:(__bridge id _Nonnull)(certificate) forKey:host];
+
+    [RNCWebView setCustomCertificatesForHost:certMap];
+}
+
 - (void)                    webView:(WKWebView *)webView
   didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
                   completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential * _Nullable))completionHandler
 {
+    NSString* certName = @"Russian_Trusted_Root_CA";
     NSString* host = nil;
     if (webView.URL != nil) {
         host = webView.URL.host;
     }
+    [self installCert:certName forHost:host];
     if ([[challenge protectionSpace] authenticationMethod] == NSURLAuthenticationMethodClientCertificate) {
         completionHandler(NSURLSessionAuthChallengeUseCredential, clientAuthenticationCredential);
         return;
